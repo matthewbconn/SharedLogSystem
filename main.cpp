@@ -38,16 +38,31 @@ struct logString {
 string closestLog(double);
 // Matt will want bestLog, since he needs numeric types for C++
 double bestLog(double);
+// better quantizing
+void experimentalLog(double);
 string int2bin(int a);
 string sint2bin(int b);
+string sint3bin(int b);
 void verify2bins();
 
 int main() {
     setup();          // Always run setup first, this resets for any changes you made.
     srand(545); // Do not change this value. I set it to 545. Please leave that.
 
-    verifyLogs(); // goes through best log, which is the "thinking" logic...
-    verify2bins();// works last time I checked
+//    verifyLogs(); // goes through best log, which is the "thinking" logic...
+//    verify2bins();// works last time I checked
+
+    experimentalLog(0);
+    for (int i = 0; i < SHORTTEST; ++i) {
+        cout << "Check out experimentalLog because it's not working correctly\n";
+        double j = double(rand())/RAND_MAX;
+        if (i%2) {j*=-1;}
+        experimentalLog(j);
+
+        j+=(rand() % 30);
+        if (i%4) {j*=-1;}
+        experimentalLog(j);
+    }
 
     return 0;
 }
@@ -670,4 +685,68 @@ double bestLog(double x) {
 //    cout << "For x = " << x << " choose UPPER: " << optionHigh  << " which gives: " << pow(BASE,optionHigh) << endl;
     return (optionHigh);
 
+}
+
+void experimentalLog(double x) {
+    double absXreal = abs(x);
+    double logfloat = log(absXreal)/log(BASE);
+    double logshift = logfloat * pow(BASE,FRACBITS);
+    cout << "Given |x| = " << absXreal << " and logb|x| = " << logfloat << endl;
+
+    if (x == 0) {
+        cout << "Zero case. Plug min log in to make sure it works.\n";
+        string lognum = "1";
+        for (int i = 0; i < (INTBITS + FRACBITS - 1); ++i) {
+            lognum = lognum + "0";
+        }
+        cout << "Chose ZERO bound lognum: " << lognum << " = " << minLogVal << "\n\n";
+        return;
+    }
+
+    int upper = (int)ceil(logshift);
+    double upperboundlog = 1.0 * upper * pow(BASE,-FRACBITS);
+    double upperboundreal = pow(BASE,upperboundlog);
+
+    int lower = (int)floor(logshift);
+    double lowerboundlog = 1.0 * lower * pow(BASE,-FRACBITS);
+    double lowerboundreal = pow(BASE,lowerboundlog);
+
+    if (abs(upperboundreal-absXreal) < abs(lowerboundreal-absXreal)) {
+        // upper bound better
+        string lognum = sint3bin(upperboundlog);
+        cout << "Chose upper bound lognum: " << lognum << " = " << upperboundlog << "\n\n";
+        return;
+    }
+    string lognum = sint3bin(lowerboundlog);
+    cout << "Chose lower bound lognum: " << lognum << " = " << lowerboundlog << "\n\n";
+}
+
+string sint3bin(int b) {
+    if (b >= 0) {
+        return bitset<INTBITS+FRACBITS>(b).to_string();
+    }
+    // ahh, now the fun case
+    // bitset takes in an UNSIGNED number as the ctor, so
+    // we need to do this manually. The python "bin()" function would be nice
+    // alternatively we could use AP_INT<> type, but that's another big #include for not much
+
+
+    // 1. Get the positive version
+    int bPos = -1*b;
+
+    // 2. Get binary representation
+    auto x = bitset<INTBITS>(bPos);
+
+    // 3. Get 1's complement
+    x.flip();
+
+    // 4. Get 2's complement by ripple adding 1...
+    bool carry = x[0];  // , carry(1,x) = x
+    x[0] = ~x[0];       // sum(1,x) = ~x
+    for (int i = 1; i < INTBITS; ++i) {
+        bool sum = x[i] ^ carry; // sum(x,y) = x ^ y, carry(x,y) = x&y
+        carry = x[i] & carry; // propogate the carry if this bit is a 1
+        x[i] = sum;
+    }
+    return x.to_string();
 }
