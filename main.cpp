@@ -13,8 +13,8 @@
 
 // on the lognum itself
 #define BASE 2
-#define INTBITS 3
-#define FRACBITS 3
+#define INTBITS 4
+#define FRACBITS 5
 #define W_BITS (INTBITS + FRACBITS)
 
 using namespace std;
@@ -34,7 +34,10 @@ struct logString {
     double aslog;
 };
 
+// Griffin will want closestLog, since he needs bit vectors for VHDL
 string closestLog(double);
+// Matt will want bestLog, since he needs numeric types for C++
+double bestLog(double);
 string int2bin(int a);
 string sint2bin(int b);
 void verify2bins();
@@ -43,7 +46,7 @@ int main() {
     setup();          // Always run setup first, this resets for any changes you made.
     srand(545); // Do not change this value. I set it to 545. Please leave that.
 
-    verifyLogs(); // works last time I checked
+    verifyLogs(); // goes through best log, which is the "thinking" logic...
     verify2bins();// works last time I checked
 
     return 0;
@@ -297,13 +300,32 @@ void MSE_Analysis(string goldpath, string testpath) {
     printf("\nRMSD of %d ops: %.7f",RMSD);
 }
 
-
 /*
- * Code you wrote while you were tired
- * Are you *sure* it works...?
- * Also you didn't call Lily or Meg this weekend
+ * I fully tested this function when the output for x_fixed was a double
+ * I really don't think there is any issue now that I changed the output
+ * to be a string.  The function returns at different points, but
+ * inputs should still take the same paths they did before.
+ *
+ * That method lives on as "double bestLog(double)" just in case
+ * if you need to find the procedure, go through bestLog, it will be easier
+ * and it had better push the 5 cases through the same way:
+ *      x = 1 case - dealt with up front
+ *     |x| > 1
+ *          - tricky
+ *          - normal
+ *     |x| < 1
+ *          - tricky
+ *          - normal
+ *
  * */
 string closestLog(double x) {
+    /*
+     * Griffin
+     *  do you want the sign bit at the beginning of your (lognum) bitvector,
+     *  or the end? Whichever you decide every instance of totalstr needs to
+     *  be adjusted to be "sgn + totalstr" or "totalstr + sgn"
+     * */
+    string sgn = x > 0 ? "1": "0";
     double absXreal = abs(x);
     // the 'true' logval... can be positive (|x| > 1) or negative ( -1 < x < 1)
     double logfloat = log(abs(x))/log(BASE);
@@ -459,19 +481,20 @@ string closestLog(double x) {
  * Prints console message if any of the log procedures failed
  * */
 void verifyLogs() {
+    cout << "Testing bestLog finder (closestLog should do the same)" << endl;
     cout << "If no errors occurred, ";
     for (int i = 0; i < TESTCASES; ++i) {
         int num = rand() % (int)(maxRealVal - 1*minRealVal);
         num -= (int)(maxRealVal);
-        closestLog(num);
+        bestLog(num);
     }
-    cout << "this sentence is uninterrupted\n" << endl;
+    cout << "this sentence is uninterrupted.\n" << endl;
 }
 
 
 /*
  * Turn the fractional part of the lognum into a bitvector, padded out to FRACBITS length
- * takes in an unsigned integer - there is NO way this should be interpretted as a negative
+ * takes in an unsigned integer - there is NO way this should be interpreted as a negative
  * */
 string int2bin(int a) {
     return bitset<FRACBITS>(a).to_string();
@@ -516,7 +539,7 @@ void verify2bins() {
         // Given INTBITS = x, smallest number is -2^(x-1)
         //                    largest number is  -1 + 2^(x-1)
         // Width of range is 2^x
-    cout << "Begin signed integer testing. Hope this works\n";
+    cout << "Begin signed integer testing. Hope this works";
     int biggestSigned = -1 + pow(2,INTBITS-1);
     int smallestSigned = -1*pow(2,INTBITS-1);
     int intRange = pow(2,INTBITS);
@@ -531,7 +554,7 @@ void verify2bins() {
         cout << "\nDecimal " << i << " as bitvector : " << sint2bin(i);
     }
 
-    cout << "\n\nBegin unsigned integer testing. This should work\n";
+    cout << "\n\nBegin unsigned integer testing. This should work";
     // Case 2, fractional part.  Unlikely to incur errors
         // Given FRACBITS - y, smallest number is 0
         //                     largest number is -1+2^y
@@ -545,4 +568,106 @@ void verify2bins() {
 //        int num = rand() % fracRange;
         cout << "\nDecimal " << i << " as bitvector : " << int2bin(i);
     }
+}
+
+/*
+ *  *
+ *    1    x = 1 case - dealt with up front
+ *    2_   |x| > 1
+ *     2a    - tricky
+ *     2b    - normal
+ *    3_   |x| < 1
+ *     3a    - tricky
+ *     3b    - normal
+ * */
+double bestLog(double x) {
+    // the 'true' logval... can be positive (|x| > 1) or negative ( -1 < x < 1)
+    double logfloat = log(abs(x))/log(BASE);
+    double optionHigh(0.0),optionLow(0.0);
+    // Right away, need to get rid of the zero case. By now, logfloat is inf and this error will propogate
+    if (x == 0) {
+        // CASE 1 ----------------------------------------------
+        return minLogVal;
+    }
+    if (logfloat >= 0) { // |x| > 1
+        // cutoff for overshoot is okay: logfloat is within 1 resolution of next whole #
+        if (abs(ceil(logfloat)-logfloat) < logPrecision) {
+        // CASE 2a ----------------------------------------------
+            // easy, now your two options are
+            // the whole # L, or L - precision
+            optionHigh = ceil(logfloat);
+            optionLow = optionHigh - logPrecision;
+        } else {
+        // CASE 2b ----------------------------------------------
+            // normal procedure
+            // 1. Get a close approximation for integer part
+            int logfixedint = floor(logfloat);
+            // 2. Get the fraction bits
+            double fracpart = logfloat - logfixedint; // positive bc logfixedint <= logfloat
+            // 2a. Shift them over
+            int lowfrac = floor(pow(BASE,FRACBITS) * fracpart);
+            int highfrac = lowfrac + 1;
+            // 3. A good guess
+            optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
+            optionHigh = 1.0*logfixedint + pow(BASE,-FRACBITS)*highfrac;
+            //optionHigh = optionLow + logPrecision;
+        }
+    } else { // -1 < x < +1
+        // cutoff for overshoot is better: logfloat w/n 1 resolution of next whole #
+        if (abs(logfloat - ceil(logfloat)) < logPrecision) {
+        // CASE 3a ----------------------------------------------
+            // easy, now your two options are
+            // the whole # L, or L - precision
+            optionHigh = ceil(logfloat);
+            optionLow = optionHigh - logPrecision;
+        } else {
+        // CASE 3b ----------------------------------------------
+            // normal procedure
+            // 1. Get a close approximation for integer part
+            int logfixedint = floor(logfloat);
+            // 2. Get the fraction bits
+            double fracpart = logfloat - logfixedint; // positive bc logfixedint <= logfloat
+            // 2a. Shift them over
+            double logfrac = floor(pow(BASE,FRACBITS) * fracpart);
+            // 3. Possible fraction parts
+            int lowfrac = floor(logfrac);
+            int highfrac = ceil(logfrac);
+            // 4. Leading to possible guesses
+            optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
+            optionHigh = 1.0*logfixedint + pow(BASE,-FRACBITS)*highfrac; // optionLow + logPrecision;
+        }
+    }
+
+    // Get rid of negative 0
+    if (optionLow == -0) {optionLow = 0;}
+    if (optionHigh == -0) {optionHigh = 0;}
+
+    // At this point, all paths have been executed
+    // We are only detecting errors and then selecting the correct higher/lower
+    // We are not changing higher/lower anymore. Those are fixed by this point
+
+
+    double LowtoReal = pow(BASE,optionLow); double HightoReal = pow(BASE,optionHigh);
+    double absXreal = abs(x);
+    if (absXreal < LowtoReal || absXreal > HightoReal) {
+        cout << "Error type 1 occured on x = " << x << " with lowerLog = "
+             << optionLow << " and higherLog = " << optionHigh << endl;
+    }
+    //if (abs(optionLow - optionHigh) > logPrecision + EPSILON) { // also works
+    if (abs(optionLow + logPrecision - optionHigh) > EPSILON) { // error on x_real = 0 if not yet caught
+        cout << "Error type 2 occured on x = " << x << " with lowerLog = "
+             << optionLow << " and higherLog = " << optionHigh << endl;
+    }
+    // DON'T just pick the closer log value to float log(|x|)
+    //      if (abs(optionLow-logfloat) < abs(optionHigh-logfloat)) {
+    // DO pick the log value that gives the 2^(logval) closest to |x|
+    if (abs(LowtoReal-x) < abs(HightoReal-x)) {
+        // Used to show how we decided in console view
+//        cout << "For x = " << x << " choose LOWER: " << optionLow << " which gives: " << pow(BASE,optionLow) << endl;
+        return (optionLow);
+    }
+// Used to show how we decided in console view
+//    cout << "For x = " << x << " choose UPPER: " << optionHigh  << " which gives: " << pow(BASE,optionHigh) << endl;
+    return (optionHigh);
+
 }
