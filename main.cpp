@@ -13,8 +13,8 @@
 
 // on the lognum itself
 #define BASE 2
-#define INTBITS 4
-#define FRACBITS 4
+#define INTBITS 3
+#define FRACBITS 3
 #define W_BITS (INTBITS + FRACBITS)
 
 using namespace std;
@@ -304,10 +304,17 @@ void MSE_Analysis(string goldpath, string testpath) {
  * Also you didn't call Lily or Meg this weekend
  * */
 string closestLog(double x) {
+    double absXreal = abs(x);
     // the 'true' logval... can be positive (|x| > 1) or negative ( -1 < x < 1)
     double logfloat = log(abs(x))/log(BASE);
     double optionHigh(0.0),optionLow(0.0);
+
+    // These will become bit vectors that we concatenate
     string intstr,fracstr,totalstr;
+
+    // Flag 1: potential for overshoot w/ |a| > 1
+    // Flag 2: potential for overshoot with |a| < 1
+    bool flag1(false),flag2(false);
 
     // Right away, need to get rid of the zero case. By now, logfloat is inf and this error will propogate
     if (x == 0) { // should look like 10...0_0..0
@@ -318,16 +325,17 @@ string closestLog(double x) {
     }
 
     // need these variable names the same for all remaining paths
-    int logfixedint, lowfrac,highfrac;
+    int logfixedint, lowfrac,highfrac,thefrac;
     double fracpart;
 
     if (logfloat >= 0) { // |x| > 1
         // cutoff for overshoot is okay: logfloat is within 1 resolution of next whole #
         if (abs(ceil(logfloat)-logfloat) < logPrecision) {
             // easy, now your two options are
-            // the whole # L, or L - precision
-            optionHigh = ceil(logfloat);
-            optionLow = optionHigh - logPrecision;
+            // the whole # L, or L - precision   ex. logfloat  = 2.99999
+            optionHigh = ceil(logfloat);       //ex. optionHI  = 3
+            optionLow = optionHigh - logPrecision;// optionLOW = 3 - logprecision
+            flag1 = true;
         } else {
             // normal procedure
             // 1. Get a close approximation for integer part
@@ -343,16 +351,17 @@ string closestLog(double x) {
             // 3. A good guess
             optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
             optionHigh = 1.0*logfixedint + pow(BASE,-FRACBITS)*highfrac;
-            //optionHigh = optionLow + logPrecision;
+            //optionHigh = optionLow + logPrecision; // equivalent
         }
 
     } else { // -1 < x < +1
         // cutoff for overshoot is better: logfloat w/n 1 resolution of next whole #
         if (abs(logfloat - ceil(logfloat)) < logPrecision) {
             // easy, now your two options are
-            // the whole # L, or L - precision
-            optionHigh = ceil(logfloat);
-            optionLow = optionHigh - logPrecision;
+            // the whole # L, or L - precision             ex. logfloat  = -2.01
+            optionHigh = ceil(logfloat);                // ex. optionHI  = -2
+            optionLow = optionHigh - logPrecision;      // ex. optionLO = - 2 - log precision
+            flag2 = true;
         } else {
             // normal procedure
             // 1. Get a close approximation for integer part
@@ -380,7 +389,6 @@ string closestLog(double x) {
 
 
     double LowtoReal = pow(BASE,optionLow); double HightoReal = pow(BASE,optionHigh);
-    double absXreal = abs(x);
 
     if (absXreal < LowtoReal || absXreal > HightoReal) {
         cout << "Error type 1 occured on x = " << x << " with lowerLog = "
@@ -396,16 +404,54 @@ string closestLog(double x) {
     //      if (abs(optionLow-logfloat) < abs(optionHigh-logfloat)) {
 
     // DO pick the log value that gives the 2^(logval) closest to |x|
+
+    if (flag1 || flag2) {
+        if (flag1) {
+            // Take upper branch if 2^5.00 gives a better approximation than 2^4.99
+            if (abs(HightoReal - absXreal) <= abs(LowtoReal - absXreal)) {
+                logfixedint = (int)round(optionHigh);// this should already be an int, round to take care of float behavior
+                thefrac = 0; highfrac = thefrac;
+            } else {
+                // this branch indicates frac int should be maxed out
+                logfixedint = (int)round(optionHigh) - 1;
+                thefrac = (int)round(pow(BASE, FRACBITS)) - 1; lowfrac = thefrac;
+            }
+        } else {
+            // Flag 2
+            // Take upper branch if 2^-5.00 gives a better approximation than 2^-5.01
+            if(abs(HightoReal - absXreal) <= abs(LowtoReal-absXreal)) {
+                logfixedint = (int)round(optionHigh); // this should already be an int, rount to take care of float behavior
+                thefrac = 0; highfrac = thefrac;
+            } else {
+                logfixedint = (int)round(optionHigh) - 1;
+                thefrac = (int)round(pow(BASE, FRACBITS)) - 1; lowfrac = thefrac;
+            }
+
+        }
+        intstr = sint2bin(logfixedint);
+        fracstr = int2bin(thefrac);
+        totalstr = intstr + "_" + fracstr;
+        return totalstr;
+    }
+
+
     if (abs(LowtoReal-x) < abs(HightoReal-x)) {
         // Used to show how we decided in console view
 //        cout << "For x = " << x << " choose LOWER: " << optionLow << " which gives: " << pow(BASE,optionLow) << endl;
-        return ("Option low but first convert to lognum bit format");
+
+        intstr = sint2bin(logfixedint);
+        fracstr = int2bin(lowfrac);
+        totalstr = intstr + "_" + fracstr;
+        return totalstr;
     }
 
 
 // Used to show how we decided in console view
 //    cout << "For x = " << x << " choose UPPER: " << optionHigh  << " which gives: " << pow(BASE,optionHigh) << endl;
-    return ("Option high but first convert to lognum bit format");
+    intstr = sint2bin(logfixedint);
+    fracstr = int2bin(highfrac);
+    totalstr = intstr + "_" + fracstr;
+    return totalstr;
 
 }
 
@@ -413,11 +459,13 @@ string closestLog(double x) {
  * Prints console message if any of the log procedures failed
  * */
 void verifyLogs() {
+    cout << "If no errors occurred, ";
     for (int i = 0; i < TESTCASES; ++i) {
         int num = rand() % (int)(maxRealVal - 1*minRealVal);
         num -= (int)(maxRealVal);
         closestLog(num);
     }
+    cout << "this sentence is uninterrupted\n" << endl;
 }
 
 
