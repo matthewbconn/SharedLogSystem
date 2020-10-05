@@ -40,7 +40,7 @@ string sint2bin(int b);
 void verify2bins();
 
 int main() {
-    setup();
+    setup();          // Always run setup first, this resets for any changes you made.
     srand(545); // Do not change this value. I set it to 545. Please leave that.
 
     verifyLogs(); // works last time I checked
@@ -307,11 +307,19 @@ string closestLog(double x) {
     // the 'true' logval... can be positive (|x| > 1) or negative ( -1 < x < 1)
     double logfloat = log(abs(x))/log(BASE);
     double optionHigh(0.0),optionLow(0.0);
+    string intstr,fracstr,totalstr;
 
     // Right away, need to get rid of the zero case. By now, logfloat is inf and this error will propogate
-    if (x == 0) {
-        return to_string(minLogVal);
+    if (x == 0) { // should look like 10...0_0..0
+        intstr = sint2bin((int)round(minLogVal));  // minLogVal was really an int stored as a double
+        fracstr = int2bin(0);
+        totalstr = intstr + "_" + fracstr;
+        return totalstr;
     }
+
+    // need these variable names the same for all remaining paths
+    int logfixedint, lowfrac,highfrac;
+    double fracpart;
 
     if (logfloat >= 0) { // |x| > 1
         // cutoff for overshoot is okay: logfloat is within 1 resolution of next whole #
@@ -323,14 +331,14 @@ string closestLog(double x) {
         } else {
             // normal procedure
             // 1. Get a close approximation for integer part
-            int logfixedint = floor(logfloat);
+            logfixedint = floor(logfloat);
 
             // 2. Get the fraction bits
-            double fracpart = logfloat - logfixedint; // positive bc logfixedint <= logfloat
+            fracpart = logfloat - logfixedint; // positive bc logfixedint <= logfloat
 
             // 2a. Shift them over
-            int lowfrac = floor(pow(BASE,FRACBITS) * fracpart);
-            int highfrac = lowfrac + 1;
+            lowfrac = floor(pow(BASE,FRACBITS) * fracpart);
+            highfrac = lowfrac + 1;
 
             // 3. A good guess
             optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
@@ -348,17 +356,17 @@ string closestLog(double x) {
         } else {
             // normal procedure
             // 1. Get a close approximation for integer part
-            int logfixedint = floor(logfloat);
+            logfixedint = floor(logfloat);
 
             // 2. Get the fraction bits
-            double fracpart = logfloat - logfixedint; // positive bc logfixedint <= logfloat
+            fracpart = logfloat - logfixedint; // positive bc logfixedint <= logfloat
 
             // 2a. Shift them over
             double logfrac = floor(pow(BASE,FRACBITS) * fracpart);
 
             // 3. Possible fraction parts
-            int lowfrac = floor(logfrac);
-            int highfrac = ceil(logfrac);
+            lowfrac = floor(logfrac);
+            highfrac = ceil(logfrac);
 
             // 4. Leading to possible guesses
             optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
@@ -366,6 +374,7 @@ string closestLog(double x) {
         }
     }
 
+    // Doubles support +0 and -0.  We don't really want -0
     if (optionLow == -0) {optionLow = 0;}
     if (optionHigh == -0) {optionHigh = 0;}
 
