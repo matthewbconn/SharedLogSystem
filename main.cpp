@@ -8,13 +8,13 @@
 // on testing
 #define TESTCASES 100000
 #define BIG_ERROR_PERCENT 10
-#define SHORTTEST 20
+#define SHORTTEST 10
 #define EPSILON 0.0000000000000000001 //this one is kinda arbitrary
 
 // on the lognum itself
 #define BASE 2
 #define INTBITS 4
-#define FRACBITS 3
+#define FRACBITS 4
 #define W_BITS (INTBITS + FRACBITS)
 
 using namespace std;
@@ -37,12 +37,14 @@ struct logString {
 string closestLog(double);
 string int2bin(int a);
 string sint2bin(int b);
+void verify2bins();
 
 int main() {
     setup();
     srand(545); // Do not change this value. I set it to 545. Please leave that.
 
-    verifyLogs();
+    verifyLogs(); // works last time I checked
+    verify2bins();// works last time I checked
 
     return 0;
 }
@@ -409,12 +411,81 @@ void verifyLogs() {
     }
 }
 
-// used to turn the fractional part of the lognum into a bitvector, padded accordingly
-string int2bin(int a) {
 
+/*
+ * Turn the fractional part of the lognum into a bitvector, padded out to FRACBITS length
+ * takes in an unsigned integer - there is NO way this should be interpretted as a negative
+ * */
+string int2bin(int a) {
+    return bitset<FRACBITS>(a).to_string();
 }
 
-// used to turn the integer part of the lognum into a bitvector, padded accordingly
+/*
+ * Turn the integer part of the lognum into a bitvector, padded accordingly
+ * takes in a signed integer. Need to check sign and deal with negative crap
+ * */
 string sint2bin(int b) {
+    if (b >= 0) {
+        return bitset<INTBITS>(b).to_string();
+    }
+    // ahh, now the fun case
+    // bitset takes in an UNSIGNED number as the ctor, so
+    // we need to do this manually. The python "bin()" function would be nice
+    // alternatively we could use AP_INT<> type, but that's another big #include for not much
 
+
+    // 1. Get the positive version
+    int bPos = -1*b;
+
+    // 2. Get binary representation
+    auto x = bitset<INTBITS>(bPos);
+
+    // 3. Get 1's complement
+    x.flip();
+
+    // 4. Get 2's complement by ripple adding 1...
+    bool carry = x[0];  // , carry(1,x) = x
+    x[0] = ~x[0];       // sum(1,x) = ~x
+    for (int i = 1; i < INTBITS; ++i) {
+        bool sum = x[i] ^ carry; // sum(x,y) = x ^ y, carry(x,y) = x&y
+        carry = x[i] & carry; // propogate the carry if this bit is a 1
+        x[i] = sum;
+    }
+    return x.to_string();
+}
+
+void verify2bins() {
+    // Case 1, integer part.  Likely place for a screw up
+        // Given INTBITS = x, smallest number is -2^(x-1)
+        //                    largest number is  -1 + 2^(x-1)
+        // Width of range is 2^x
+    cout << "Begin signed integer testing. Hope this works\n";
+    int biggestSigned = -1 + pow(2,INTBITS-1);
+    int smallestSigned = -1*pow(2,INTBITS-1);
+    int intRange = pow(2,INTBITS);
+    int halfIntRange = intRange/2;
+
+//    cout << "\nDecimal " << smallestSigned << " as bitvector : " << sint2bin(smallestSigned);
+//    cout << "\nDecimal " << biggestSigned << " as bitvector : " << sint2bin(biggestSigned);
+//    cout << "\nDecimal " << 0 << " as bitvector : " << sint2bin(0);
+    for (int i = smallestSigned; i <= biggestSigned; ++i) {
+//        int num = rand() % halfIntRange;
+//        if(i%2) {num *= -1;}
+        cout << "\nDecimal " << i << " as bitvector : " << sint2bin(i);
+    }
+
+    cout << "\n\nBegin unsigned integer testing. This should work\n";
+    // Case 2, fractional part.  Unlikely to incur errors
+        // Given FRACBITS - y, smallest number is 0
+        //                     largest number is -1+2^y
+        // width of range is 2^t
+    int biggestU = -1 + pow(2,FRACBITS);
+    int smallestU = 0;
+    int fracRange = pow(2,FRACBITS);
+//    cout << "\nDecimal " << biggestU << " as bitvector : " << sint2bin(biggestU);
+//    cout << "\nDecimal " << smallestU << " as bitvector : " << sint2bin(smallestU);
+    for (int i = smallestU; i <= biggestU; ++i) {
+//        int num = rand() % fracRange;
+        cout << "\nDecimal " << i << " as bitvector : " << int2bin(i);
+    }
 }
