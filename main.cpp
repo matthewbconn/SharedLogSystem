@@ -10,6 +10,7 @@
 #define BIG_ERROR_PERCENT 10
 #define SHORTTEST 10
 #define EPSILON 0.0000000000000000001 //this one is kinda arbitrary
+#define SEEDVAL 545 // Do not change this. This val is 545. Do not change it
 
 // on the lognum itself
 #define BASE 2
@@ -33,16 +34,11 @@ string sgn(double a) {
     return x;
 }
 
-struct logString {
-    string bits;
-    double aslog;
-};
-
 // Griffin will want closestLog, since he needs bit vectors for VHDL
 string closestLog(double);
 // Matt will want bestLog, since he needs numeric types for C++
 double bestLog(double);
-// better quantizing
+// better quantizing - in progress
 void experimentalLog(double);
 string int2bin(int a);
 string sint2bin(int b);
@@ -55,8 +51,6 @@ int main() {
 
     verifyLogs();  // goes through best log, which is the "thinking" logic...
     verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
-
-    fullRangeTestSetAddition();
 
 //    verifyElog();
 
@@ -88,7 +82,7 @@ void setup() {
     cout << "(shown with double floating point precision)\n" << endl;
 }
 void fullRangeTestSetAddition(){
-   srand(545); // Do not change this value. I set it to 545. Please leave that.
+   srand(SEEDVAL); // Do not change this value. I set it to 545. Please leave that.
    cout << "Generating REAL and LOG inputs across (1/2) input range for addition" << endl;
    cout << "\tThis guarantees that no overflow will occur" << endl;
    string file1name("../real_addition_inputs.txt"),file2name("../log_addition_inputs.txt"),
@@ -125,7 +119,7 @@ void fullRangeTestSetAddition(){
     goldOutputs.close();
 }
 void fullRangeTestSetMultiply() {
-    srand(545); // Do not change this value. I set it to 545. Please leave that.
+    srand(SEEDVAL); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across sqrt(input range) for multiplication" << endl;
     cout << "\tThis guarantees that no overflow will occur" << endl;
     string file1name("../real_multiplication_inputs.txt"),file2name("../log_multiplication_inputs.txt"),
@@ -151,7 +145,9 @@ void fullRangeTestSetMultiply() {
 
         string aLog = closestLog(a); string bLog = closestLog(b);
         logInputs << aLog << endl;
+        logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
+        logInputs << sgn(b) << endl;
     }
 
     cout << "Three files created: " << file1name << " , " << file2name << " , and " << file3name << endl;
@@ -160,7 +156,7 @@ void fullRangeTestSetMultiply() {
     goldOutputs.close();
 }
 void smallTestSet() {
-    srand(545); // Do not change this value. I set it to 545. Please leave that.
+    srand(SEEDVAL); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across small range for add/multiply" << endl;
     cout << "\tThese tests squeeze x into range -1 < x_real < +1" << endl;
     cout << "\tThis test set should be used to ensure sufficient precision with a small set of operands.\n";
@@ -188,7 +184,9 @@ void smallTestSet() {
 
         string aLog = closestLog(a); string bLog = closestLog(b);
         logInputs << aLog << endl;
+        logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
+        logInputs << sgn(b) << endl;
     }
 
     cout << "Four files created: " << file1name << " , " << file2name << " , "
@@ -199,7 +197,7 @@ void smallTestSet() {
     goldMultOutputs.close();
 }
 void deltaComparisonTestSet() {
-    srand(545); // Do not change this value. I set it to 545. Please leave that.
+    srand(SEEDVAL); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across (1/2) input range for DELTA testing" << endl;
     cout << "\tTesting done via log addition - guarantee that no overflow will occur" << endl;
     string file1name("../real_delta_PLUS_inputs.txt"),file2name("../log_delta_PLUS_inputs.txt"),
@@ -246,10 +244,10 @@ void deltaComparisonTestSet() {
         goldMINUSOutputs << (a+bminus) << endl;
 
         string aLog = closestLog(a); string bPlusLog = closestLog(bplus); string bMinusLog = closestLog(bminus);
-        logPLUSInputs << aLog << endl;
-        logMINUSInputs << aLog << endl;
-        logPLUSInputs << bPlusLog << endl;
-        logMINUSInputs << bMinusLog << endl;
+        logPLUSInputs << aLog << endl; logPLUSInputs << sgn(a) << endl;
+        logMINUSInputs << aLog << endl; logMINUSInputs << sgn(a) << endl;
+        logPLUSInputs << bPlusLog << endl; logPLUSInputs << sgn(bplus) << endl;
+        logMINUSInputs << bMinusLog << endl; logMINUSInputs << sgn(bminus) << endl;
     }
 
     cout << "Six files created: " << file1name << " , " << file2name << " , " << file3name <<
@@ -319,7 +317,7 @@ void MSE_Analysis(string goldpath, string testpath) {
     printf("MSE of %d ops: %.7f", MSE);
     printf("\nRMSD of %d ops: %.7f",RMSD);
     printf("\n\tside note: if you got infinite % error that just "
-           "means a result =  0 test case came up. Run it again");
+           "means a result =  0 test case came up. Run it again\n");
 }
 
 /*
