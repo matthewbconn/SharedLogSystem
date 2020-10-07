@@ -732,7 +732,11 @@ void experimentalLog(double x) {
     double shiftedminLogVal = minLogVal * pow(BASE,FRACBITS);
     // saturation:
     if (absXreal < 1 && logshift < shiftedminLogVal) {
+        cout << "Since abs|x| ~= 0 and log|x| << minimum logval, saturate and return\n";
         logshift = shiftedminLogVal;
+        cout << "Zero bound lognum: " << sint3bin(shiftedminLogVal) << " = " << minLogVal <<
+             "\n\tIt's corresponding real is "<< nearZeroRealVal << "\n";
+
     }
 
     cout << "Given |x| = " << absXreal << " and logb|x| = " << logfloat << endl;
@@ -755,12 +759,11 @@ void experimentalLog(double x) {
     double lowerboundlog = 1.0 * lower * pow(BASE,-FRACBITS);
     double lowerboundreal = pow(BASE,lowerboundlog);
 
-    string lowerlognum = sint3bin(lowerboundlog);
-    string upperlognum = sint3bin(upperboundlog);
+    string lowerlognum = sint3bin(lower);
+    string upperlognum = sint3bin(upper);
 
     if (abs(upperboundreal-absXreal) < abs(lowerboundreal-absXreal)) {
         // upper bound better
-        string upperlognum = sint3bin(upperboundlog);
         cout << "Chose upper bound lognum: " << upperlognum << " = " << upperboundlog <<
                      "\n\tIt's corresponding real is "<< upperboundreal << "\n";
         cout << "other: lower bound lognum: " << lowerlognum << " = " << lowerboundlog <<
@@ -796,7 +799,9 @@ string sint3bin(int b) {
     // 4. Get 2's complement by ripple adding 1...
     bool carry = x[0];  // , carry(1,x) = x
     x[0] = ~x[0];       // sum(1,x) = ~x
-    for (int i = 1; i < INTBITS; ++i) {
+
+    // starting at LSB + 1, move through
+    for (int i = 1; i < W_BITS ; ++i) {
         bool sum = x[i] ^ carry; // sum(x,y) = x ^ y, carry(x,y) = x&y
         carry = x[i] & carry; // propogate the carry if this bit is a 1
         x[i] = sum;
@@ -807,7 +812,6 @@ string sint3bin(int b) {
 void verifyElog() {
     experimentalLog(0);
     for (int i = 0; i < SHORTTEST; ++i) {
-        cout << "Check out experimentalLog because it's not working correctly\n";
         double j = double(rand())/RAND_MAX;
         if (i%2) {j*=-1;}
         experimentalLog(j);
