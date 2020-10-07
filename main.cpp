@@ -29,10 +29,7 @@ void smallTestSet();
 void deltaComparisonTestSet();
 void percentErrorAnalysis(string goldpath, string testpath);
 void MSE_Analysis(string goldpath, string testpath);
-string sgn(double a) {
-    string x = a > 0 ? "1" : "0";
-    return x;
-}
+
 
 // Griffin will want closestLog, since he needs bit vectors for VHDL
 string closestLog(double);
@@ -40,19 +37,27 @@ string closestLog(double);
 double bestLog(double);
 // better quantizing - in progress
 void experimentalLog(double);
+// unsigned bitvector of length FRACBITS
 string int2bin(int a);
+// 2's c bitvector of length INTBITS
 string sint2bin(int b);
+// 2's c bitvector of length W_BITS
 string sint3bin(int b);
+
 void verify2bins();
 void verifyElog();
+string sgn(double a) {
+    string s = a > 0 ? "1" : "0";
+    return s;
+}
 
 int main() {
     setup();          // Always run setup first, this resets for any changes you made.
 
-    verifyLogs();  // goes through best log, which is the "thinking" logic...
-    verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
+//    verifyLogs();  // goes through best log, which is the "thinking" logic...
+//    verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
 
-//    verifyElog();
+    verifyElog();
 
     return 0;
 }
@@ -724,6 +729,12 @@ void experimentalLog(double x) {
     double absXreal = abs(x);
     double logfloat = log(absXreal)/log(BASE);
     double logshift = logfloat * pow(BASE,FRACBITS);
+    double shiftedminLogVal = minLogVal * pow(BASE,FRACBITS);
+    // saturation:
+    if (absXreal < 1 && logshift < shiftedminLogVal) {
+        logshift = shiftedminLogVal;
+    }
+
     cout << "Given |x| = " << absXreal << " and logb|x| = " << logfloat << endl;
 
     if (x == 0) {
@@ -744,31 +755,40 @@ void experimentalLog(double x) {
     double lowerboundlog = 1.0 * lower * pow(BASE,-FRACBITS);
     double lowerboundreal = pow(BASE,lowerboundlog);
 
+    string lowerlognum = sint3bin(lowerboundlog);
+    string upperlognum = sint3bin(upperboundlog);
+
     if (abs(upperboundreal-absXreal) < abs(lowerboundreal-absXreal)) {
         // upper bound better
-        string lognum = sint3bin(upperboundlog);
-        cout << "Chose upper bound lognum: " << lognum << " = " << upperboundlog << "\nCorresponding real is "<< upperboundreal << "\n\n";
+        string upperlognum = sint3bin(upperboundlog);
+        cout << "Chose upper bound lognum: " << upperlognum << " = " << upperboundlog <<
+                     "\n\tIt's corresponding real is "<< upperboundreal << "\n";
+        cout << "other: lower bound lognum: " << lowerlognum << " = " << lowerboundlog <<
+             "\n\tIt's corresponding real is "<< lowerboundreal << "\n\n";
         return;
     }
-    string lognum = sint3bin(lowerboundlog);
-    cout << "Chose lower bound lognum: " << lognum << " = " << lowerboundlog << "\nCorresponding real is "<< lowerboundreal << "\n\n";
+
+    cout << "Chose lower bound lognum: " << lowerlognum << " = " << lowerboundlog <<
+                "\n\tIt's corresponding real is "<< lowerboundreal << "\n";
+    cout << "other: upper bound lognum: " << upperlognum << " = " << upperboundlog <<
+         "\n\tIt's corresponding real is "<< upperboundreal << "\n\n";
 }
 
 string sint3bin(int b) {
     if (b >= 0) {
-        return bitset<INTBITS+FRACBITS>(b).to_string();
+        return bitset<W_BITS>(b).to_string();
     }
     // ahh, now the fun case
     // bitset takes in an UNSIGNED number as the ctor, so
     // we need to do this manually. The python "bin()" function would be nice
-    // alternatively we could use AP_INT<> type, but that's another big #include for not much
+    // alternatively we could use AP_INT<> type, but that's a big #include
 
 
     // 1. Get the positive version
     int bPos = -1*b;
 
     // 2. Get binary representation
-    auto x = bitset<INTBITS>(bPos);
+    auto x = bitset<W_BITS>(bPos);
 
     // 3. Get 1's complement
     x.flip();
