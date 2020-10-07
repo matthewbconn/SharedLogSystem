@@ -28,6 +28,10 @@ void smallTestSet();
 void deltaComparisonTestSet();
 void percentErrorAnalysis(string goldpath, string testpath);
 void MSE_Analysis(string goldpath, string testpath);
+string sgn(double a) {
+    string x = a > 0 ? "1" : "0";
+    return x;
+}
 
 struct logString {
     string bits;
@@ -44,25 +48,16 @@ string int2bin(int a);
 string sint2bin(int b);
 string sint3bin(int b);
 void verify2bins();
+void verifyElog();
 
 int main() {
     setup();          // Always run setup first, this resets for any changes you made.
-    srand(545); // Do not change this value. I set it to 545. Please leave that.
 
-//    verifyLogs(); // goes through best log, which is the "thinking" logic...
+    verifyLogs(); // goes through best log, which is the "thinking" logic...
+    fullRangeTestSetAddition();
 //    verify2bins();// works last time I checked
 
-    experimentalLog(0);
-    for (int i = 0; i < SHORTTEST; ++i) {
-        cout << "Check out experimentalLog because it's not working correctly\n";
-        double j = double(rand())/RAND_MAX;
-        if (i%2) {j*=-1;}
-        experimentalLog(j);
-
-        j+=(rand() % 30);
-        if (i%4) {j*=-1;}
-        experimentalLog(j);
-    }
+//    verifyElog();
 
     return 0;
 }
@@ -92,10 +87,11 @@ void setup() {
     cout << "(shown with double floating point precision)\n" << endl;
 }
 void fullRangeTestSetAddition(){
+   srand(545); // Do not change this value. I set it to 545. Please leave that.
    cout << "Generating REAL and LOG inputs across (1/2) input range for addition" << endl;
    cout << "\tThis guarantees that no overflow will occur" << endl;
-   string file1name("real_addition_inputs.txt"),file2name("log_addition_inputs.txt"),
-                    file3name("golden_real_addition_results.txt");
+   string file1name("../real_addition_inputs.txt"),file2name("../log_addition_inputs.txt"),
+                    file3name("../golden_real_addition_results.txt");
    ofstream realInputs(file1name);
    ofstream logInputs(file2name);
    ofstream goldOutputs(file3name);
@@ -117,7 +113,9 @@ void fullRangeTestSetAddition(){
 
         string aLog = closestLog(a); string bLog = closestLog(b);
         logInputs << aLog << endl;
+        logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
+        logInputs << sgn(b) << endl;
     }
 
     cout << "Three files created: " << file1name << " , " << file2name << " , and " << file3name << endl;
@@ -126,10 +124,11 @@ void fullRangeTestSetAddition(){
     goldOutputs.close();
 }
 void fullRangeTestSetMultiply() {
+    srand(545); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across sqrt(input range) for multiplication" << endl;
     cout << "\tThis guarantees that no overflow will occur" << endl;
-    string file1name("real_multiplication_inputs.txt"),file2name("log_multiplication_inputs.txt"),
-            file3name("golden_real_multiplication_results.txt");
+    string file1name("../real_multiplication_inputs.txt"),file2name("../log_multiplication_inputs.txt"),
+            file3name("../golden_real_multiplication_results.txt");
     ofstream realInputs(file1name);
     ofstream logInputs(file2name);
     ofstream goldOutputs(file3name);
@@ -160,12 +159,13 @@ void fullRangeTestSetMultiply() {
     goldOutputs.close();
 }
 void smallTestSet() {
+    srand(545); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across small range for add/multiply" << endl;
     cout << "\tThese tests squeeze x into range -1 < x_real < +1" << endl;
     cout << "\tThis test set should be used to ensure sufficient precision with a small set of operands.\n";
     cout << "\tIf insufficient precision: add frac. bits OR decrease base." << endl;
-    string file1name("real_small_inputs.txt"),file2name("log_small_inputs.txt"),
-            file3name("golden_real_multiplication_results.txt"),file4name("golden_real_addition_results.txt");
+    string file1name("../real_small_inputs.txt"),file2name("../log_small_inputs.txt"),
+            file3name("../golden_real_multiplication_results.txt"),file4name("../golden_real_addition_results.txt");
     ofstream realInputs(file1name);
     ofstream logInputs(file2name);
     ofstream goldMultOutputs(file3name);
@@ -198,12 +198,13 @@ void smallTestSet() {
     goldMultOutputs.close();
 }
 void deltaComparisonTestSet() {
+    srand(545); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across (1/2) input range for DELTA testing" << endl;
     cout << "\tTesting done via log addition - guarantee that no overflow will occur" << endl;
-    string file1name("real_delta_PLUS_inputs.txt"),file2name("log_delta_PLUS_inputs.txt"),
-            file3name("golden_real_delta_PLUS_results.txt");
-    string file4name("real_delta_MINUS_inputs.txt"),file5name("log_delta_MINUS_inputs.txt"),
-            file6name("golden_real_delta_MINUS_results.txt");
+    string file1name("../real_delta_PLUS_inputs.txt"),file2name("../log_delta_PLUS_inputs.txt"),
+            file3name("../golden_real_delta_PLUS_results.txt");
+    string file4name("../real_delta_MINUS_inputs.txt"),file5name("../log_delta_MINUS_inputs.txt"),
+            file6name("../golden_real_delta_MINUS_results.txt");
     ofstream realPLUSInputs(file1name); ofstream realMINUSInputs(file4name);
     ofstream logPLUSInputs(file2name);  ofstream logMINUSInputs(file5name);
     ofstream goldPLUSOutputs(file3name);ofstream goldMINUSOutputs(file6name);
@@ -334,12 +335,6 @@ void MSE_Analysis(string goldpath, string testpath) {
  *
  * */
 string closestLog(double x) {
-    /*
-     * Griffin
-     *  do you want the sign bit at the beginning of your (lognum) bitvector,
-     *  or the end? Whichever you decide every instance of totalstr needs to
-     *  be adjusted to be "sgn + totalstr" or "totalstr + sgn"
-     * */
     string sgn = x > 0 ? "1": "0";
     double absXreal = abs(x);
     // the 'true' logval... can be positive (|x| > 1) or negative ( -1 < x < 1)
@@ -427,6 +422,11 @@ string closestLog(double x) {
 
     double LowtoReal = pow(BASE,optionLow); double HightoReal = pow(BASE,optionHigh);
 
+    if (optionLow == optionHigh) {
+        cout << "Error type 0 occured on x = " << x << " with lowerLog = "
+             << optionLow << " and higherLog = " << optionHigh << endl;
+    }
+
     if (absXreal < LowtoReal || absXreal > HightoReal) {
         cout << "Error type 1 occured on x = " << x << " with lowerLog = "
             << optionLow << " and higherLog = " << optionHigh << endl;
@@ -489,7 +489,6 @@ string closestLog(double x) {
     fracstr = int2bin(highfrac);
     totalstr = intstr + "_" + fracstr;
     return totalstr;
-
 }
 
 /*
@@ -664,6 +663,12 @@ double bestLog(double x) {
 
     double LowtoReal = pow(BASE,optionLow); double HightoReal = pow(BASE,optionHigh);
     double absXreal = abs(x);
+
+    if (optionLow == optionHigh) {
+        cout << "Error type 0 occured on x = " << x << " with lowerLog = "
+             << optionLow << " and higherLog = " << optionHigh << endl;
+    }
+
     if (absXreal < LowtoReal || absXreal > HightoReal) {
         cout << "Error type 1 occured on x = " << x << " with lowerLog = "
              << optionLow << " and higherLog = " << optionHigh << endl;
@@ -714,11 +719,11 @@ void experimentalLog(double x) {
     if (abs(upperboundreal-absXreal) < abs(lowerboundreal-absXreal)) {
         // upper bound better
         string lognum = sint3bin(upperboundlog);
-        cout << "Chose upper bound lognum: " << lognum << " = " << upperboundlog << "\n\n";
+        cout << "Chose upper bound lognum: " << lognum << " = " << upperboundlog << "\nCorresponding real is "<< upperboundreal << "\n\n";
         return;
     }
     string lognum = sint3bin(lowerboundlog);
-    cout << "Chose lower bound lognum: " << lognum << " = " << lowerboundlog << "\n\n";
+    cout << "Chose lower bound lognum: " << lognum << " = " << lowerboundlog << "\nCorresponding real is "<< lowerboundreal << "\n\n";
 }
 
 string sint3bin(int b) {
@@ -749,4 +754,18 @@ string sint3bin(int b) {
         x[i] = sum;
     }
     return x.to_string();
+}
+
+void verifyElog() {
+    experimentalLog(0);
+    for (int i = 0; i < SHORTTEST; ++i) {
+        cout << "Check out experimentalLog because it's not working correctly\n";
+        double j = double(rand())/RAND_MAX;
+        if (i%2) {j*=-1;}
+        experimentalLog(j);
+
+        j+=(rand() % 30);
+        if (i%4) {j*=-1;}
+        experimentalLog(j);
+    }
 }
