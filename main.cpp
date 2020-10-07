@@ -53,9 +53,10 @@ void verifyElog();
 int main() {
     setup();          // Always run setup first, this resets for any changes you made.
 
-    verifyLogs(); // goes through best log, which is the "thinking" logic...
+    verifyLogs();  // goes through best log, which is the "thinking" logic...
+    verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
+
     fullRangeTestSetAddition();
-//    verify2bins();// works last time I checked
 
 //    verifyElog();
 
@@ -288,6 +289,9 @@ void percentErrorAnalysis(string goldpath, string testpath) {
 }
 
 /*
+ * Do not use this with delta function outputs. Those tests are biased and will
+ * not be assessed accurately with MSE.  Use %error one.
+ *
  * YOUR responsibility to verify input files (same length, only doubles, etc)
  *      and of course that you're not comparing the test N's output to test M's golden
  * */
@@ -314,6 +318,8 @@ void MSE_Analysis(string goldpath, string testpath) {
          " cases with significant error ( >" << BIG_ERROR_PERCENT << "%)\n";
     printf("MSE of %d ops: %.7f", MSE);
     printf("\nRMSD of %d ops: %.7f",RMSD);
+    printf("\n\tside note: if you got infinite % error that just "
+           "means a result =  0 test case came up. Run it again");
 }
 
 /*
@@ -384,6 +390,14 @@ string closestLog(double x) {
             optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
             optionHigh = 1.0*logfixedint + pow(BASE,-FRACBITS)*highfrac;
             //optionHigh = optionLow + logPrecision; // equivalent
+
+            if (optionLow == optionHigh) {
+                // Indicates that the double logfrac was exactly an integer...
+                // Unlikely, but possible.
+                // If you see this error more than once in a blue moon, something is wrong
+                cout << "Error type 0 occured on x = " << x << " with lowerLog = "
+                     << optionLow << " and higherLog = " << optionHigh << endl;
+            }
         }
 
     } else { // -1 < x < +1
@@ -403,7 +417,7 @@ string closestLog(double x) {
             fracpart = logfloat - logfixedint; // positive bc logfixedint <= logfloat
 
             // 2a. Shift them over
-            double logfrac = floor(pow(BASE,FRACBITS) * fracpart);
+            double logfrac = (pow(BASE,FRACBITS) * fracpart);
 
             // 3. Possible fraction parts
             lowfrac = floor(logfrac);
@@ -412,6 +426,14 @@ string closestLog(double x) {
             // 4. Leading to possible guesses
             optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
             optionHigh = 1.0*logfixedint + pow(BASE,-FRACBITS)*highfrac; // optionLow + logPrecision;
+
+            if (optionLow == optionHigh) {
+                // Indicates that the double logfrac was exactly an integer...
+                // Unlikely, but possible.
+                // If you see this error more than once in a blue moon, something is wrong
+                cout << "Error type 0 occured on x = " << x << " with lowerLog = "
+                     << optionLow << " and higherLog = " << optionHigh << endl;
+            }
         }
     }
 
@@ -421,11 +443,6 @@ string closestLog(double x) {
 
 
     double LowtoReal = pow(BASE,optionLow); double HightoReal = pow(BASE,optionHigh);
-
-    if (optionLow == optionHigh) {
-        cout << "Error type 0 occured on x = " << x << " with lowerLog = "
-             << optionLow << " and higherLog = " << optionHigh << endl;
-    }
 
     if (absXreal < LowtoReal || absXreal > HightoReal) {
         cout << "Error type 1 occured on x = " << x << " with lowerLog = "
@@ -582,6 +599,8 @@ void verify2bins() {
 //        int num = rand() % fracRange;
         cout << "\nDecimal " << i << " as bitvector : " << int2bin(i);
     }
+
+    cout << "\n\nCompleted binary 2's complement fixed point conversion testing\n\n";
 }
 
 /*
@@ -625,6 +644,14 @@ double bestLog(double x) {
             optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
             optionHigh = 1.0*logfixedint + pow(BASE,-FRACBITS)*highfrac;
             //optionHigh = optionLow + logPrecision;
+
+            if (optionLow == optionHigh) {
+                // Indicates that the double logfrac was exactly an integer...
+                // Unlikely, but possible.
+                // If you see this error more than once in a blue moon, something is wrong
+                cout << "Error type 0 occured on x = " << x << " with lowerLog = "
+                     << optionLow << " and higherLog = " << optionHigh << endl;
+            }
         }
     } else { // -1 < x < +1
         // cutoff for overshoot is better: logfloat w/n 1 resolution of next whole #
@@ -642,13 +669,21 @@ double bestLog(double x) {
             // 2. Get the fraction bits
             double fracpart = logfloat - logfixedint; // positive bc logfixedint <= logfloat
             // 2a. Shift them over
-            double logfrac = floor(pow(BASE,FRACBITS) * fracpart);
+            double logfrac = (pow(BASE,FRACBITS) * fracpart);
             // 3. Possible fraction parts
             int lowfrac = floor(logfrac);
             int highfrac = ceil(logfrac);
             // 4. Leading to possible guesses
             optionLow = 1.0*logfixedint + pow(BASE,-FRACBITS)*lowfrac;
             optionHigh = 1.0*logfixedint + pow(BASE,-FRACBITS)*highfrac; // optionLow + logPrecision;
+
+            if (optionLow == optionHigh) {
+                // Indicates that the double logfrac was exactly an integer...
+                // Unlikely, but possible.
+                // If you see this error more than once in a blue moon, something is wrong
+                cout << "Error type 0 occured on x = " << x << " with lowerLog = "
+                     << optionLow << " and higherLog = " << optionHigh << endl;
+            }
         }
     }
 
@@ -663,11 +698,6 @@ double bestLog(double x) {
 
     double LowtoReal = pow(BASE,optionLow); double HightoReal = pow(BASE,optionHigh);
     double absXreal = abs(x);
-
-    if (optionLow == optionHigh) {
-        cout << "Error type 0 occured on x = " << x << " with lowerLog = "
-             << optionLow << " and higherLog = " << optionHigh << endl;
-    }
 
     if (absXreal < LowtoReal || absXreal > HightoReal) {
         cout << "Error type 1 occured on x = " << x << " with lowerLog = "
