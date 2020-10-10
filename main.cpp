@@ -2,7 +2,6 @@
 #include <fstream>
 #include <cmath>
 #include <bitset>
-#include <cstdint>
 
 
 // on testing
@@ -816,7 +815,7 @@ void verifyElog() {
         if (i%2) {j*=-1;}
         experimentalLog(j);
 
-        j+=(rand() % 30);
+        j+=(rand() % (int)maxRealVal);
         if (i%4) {j*=-1;}
         experimentalLog(j);
     }
