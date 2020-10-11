@@ -14,20 +14,23 @@
 // on the lognum itself
 #define BASE 2
 #define INTBITS 4
-#define FRACBITS 5
+#define FRACBITS 4
 #define W_BITS (INTBITS + FRACBITS)
+
+// for testing
+#define OUTPUT false
 
 using namespace std;
 static double logPrecision, minLogVal, maxLogVal, nearZeroRealVal, minRealVal, maxRealVal;
 
 void setup();
-void verifyLogs();
 void fullRangeTestSetAddition();
 void fullRangeTestSetMultiply();
 void smallTestSet();
 void deltaComparisonTestSet();
 void percentErrorAnalysis(string goldpath, string testpath);
 void MSE_Analysis(string goldpath, string testpath);
+void InputFileWrite(ofstream &RealInputs, ofstream &LogInputs, double x, double y);
 
 
 // Griffin will want closestLog, since he needs bit vectors for VHDL
@@ -35,7 +38,7 @@ string closestLog(double);
 // Matt will want bestLog, since he needs numeric types for C++
 double bestLog(double);
 // better quantizing - in progress
-void experimentalLog(double);
+string experimentalLog(double);
 // unsigned bitvector of length FRACBITS
 string int2bin(int a);
 // 2's c bitvector of length INTBITS
@@ -43,8 +46,11 @@ string sint2bin(int b);
 // 2's c bitvector of length W_BITS
 string sint3bin(int b);
 
+void verifyLogs();
 void verify2bins();
 void verifyElog();
+void verifyQuant();
+
 string sgn(double a) {
     string s = a > 0 ? "1" : "0";
     return s;
@@ -56,7 +62,8 @@ int main() {
 //    verifyLogs();  // goes through best log, which is the "thinking" logic...
 //    verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
 
-    verifyElog();
+//    verifyElog();
+    verifyQuant();
 
     return 0;
 }
@@ -110,7 +117,7 @@ void fullRangeTestSetAddition(){
         realInputs << b << endl;
         goldOutputs << (a+b) << endl;
 
-        string aLog = closestLog(a); string bLog = closestLog(b);
+        string aLog = experimentalLog(a); string bLog = experimentalLog(b);
         logInputs << aLog << endl;
         logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
@@ -147,7 +154,7 @@ void fullRangeTestSetMultiply() {
         realInputs << b << endl;
         goldOutputs << (a*b) << endl;
 
-        string aLog = closestLog(a); string bLog = closestLog(b);
+        string aLog = experimentalLog(a); string bLog = experimentalLog(b);
         logInputs << aLog << endl;
         logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
@@ -186,7 +193,7 @@ void smallTestSet() {
         goldMultOutputs<< (a*b) << endl;
         goldAddOutputs << (a+b) << endl;
 
-        string aLog = closestLog(a); string bLog = closestLog(b);
+        string aLog = experimentalLog(a); string bLog = experimentalLog(b);
         logInputs << aLog << endl;
         logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
@@ -247,7 +254,10 @@ void deltaComparisonTestSet() {
         goldPLUSOutputs << (a+bplus) << endl;
         goldMINUSOutputs << (a+bminus) << endl;
 
-        string aLog = closestLog(a); string bPlusLog = closestLog(bplus); string bMinusLog = closestLog(bminus);
+        string aLog = experimentalLog(a);
+        string bPlusLog = experimentalLog(bplus);
+        string bMinusLog = experimentalLog(bminus);
+
         logPLUSInputs << aLog << endl; logPLUSInputs << sgn(a) << endl;
         logMINUSInputs << aLog << endl; logMINUSInputs << sgn(a) << endl;
         logPLUSInputs << bPlusLog << endl; logPLUSInputs << sgn(bplus) << endl;
@@ -360,8 +370,23 @@ string closestLog(double x) {
     if (x == 0) { // should look like 10...0_0..0
         intstr = sint2bin((int)round(minLogVal));  // minLogVal was really an int stored as a double
         fracstr = int2bin(0);
-        totalstr = intstr + "_" + fracstr;
+        totalstr = intstr + fracstr;
         return totalstr;
+    }
+
+    // If we can't represent the number accurately, saturate to get as close as we can
+    if (logfloat > maxLogVal) { // abs(x) is outside of our range (too big)
+        intstr = sint2bin(maxLogVal);
+        for (int i = 0; i < FRACBITS; ++i) {
+            fracstr += "1";
+        }
+        totalstr = intstr + fracstr;
+        return totalstr;
+    } else if (logfloat < minLogVal) { //abs(x) requires greater precision than we have
+        intstr = sint2bin(minLogVal);
+        fracstr = int2bin(0);
+        totalstr = intstr + fracstr;
+        return  totalstr;
     }
 
     // need these variable names the same for all remaining paths
@@ -486,18 +511,18 @@ string closestLog(double x) {
         }
         intstr = sint2bin(logfixedint);
         fracstr = int2bin(thefrac);
-        totalstr = intstr + "_" + fracstr;
+        totalstr = intstr + fracstr;
         return totalstr;
     }
 
 
-    if (abs(LowtoReal-x) < abs(HightoReal-x)) {
+    if (abs(LowtoReal-absXreal) < abs(HightoReal-absXreal)) {
         // Used to show how we decided in console view
 //        cout << "For x = " << x << " choose LOWER: " << optionLow << " which gives: " << pow(BASE,optionLow) << endl;
 
         intstr = sint2bin(logfixedint);
         fracstr = int2bin(lowfrac);
-        totalstr = intstr + "_" + fracstr;
+        totalstr = intstr + fracstr;
         return totalstr;
     }
 
@@ -506,7 +531,7 @@ string closestLog(double x) {
 //    cout << "For x = " << x << " choose UPPER: " << optionHigh  << " which gives: " << pow(BASE,optionHigh) << endl;
     intstr = sint2bin(logfixedint);
     fracstr = int2bin(highfrac);
-    totalstr = intstr + "_" + fracstr;
+    totalstr = intstr + fracstr;
     return totalstr;
 }
 
@@ -624,7 +649,14 @@ double bestLog(double x) {
         // CASE 1 ----------------------------------------------
         return minLogVal;
     }
-    if (logfloat >= 0) { // |x| > 1
+
+    if (logfloat > maxLogVal) { // abs(x) very big, this is the best we can do
+        return maxLogVal;
+    } else if (logfloat < minLogVal) { // abs(x) very small, this is the best we can do
+        return minLogVal;
+    }
+
+     if (logfloat >= 0) { // |x| > 1
         // cutoff for overshoot is okay: logfloat is within 1 resolution of next whole #
         if (abs(ceil(logfloat)-logfloat) < logPrecision) {
         // CASE 2a ----------------------------------------------
@@ -713,7 +745,7 @@ double bestLog(double x) {
     // DON'T just pick the closer log value to float log(|x|)
     //      if (abs(optionLow-logfloat) < abs(optionHigh-logfloat)) {
     // DO pick the log value that gives the 2^(logval) closest to |x|
-    if (abs(LowtoReal-x) < abs(HightoReal-x)) {
+    if (abs(LowtoReal-absXreal) < abs(HightoReal-absXreal)) {
         // Used to show how we decided in console view
 //        cout << "For x = " << x << " choose LOWER: " << optionLow << " which gives: " << pow(BASE,optionLow) << endl;
         return (optionLow);
@@ -724,30 +756,33 @@ double bestLog(double x) {
 
 }
 
-void experimentalLog(double x) {
+string experimentalLog(double x) {
     double absXreal = abs(x);
     double logfloat = log(absXreal)/log(BASE);
     double logshift = logfloat * pow(BASE,FRACBITS);
     double shiftedminLogVal = minLogVal * pow(BASE,FRACBITS);
+    string lognum;
+
     // saturation:
     if (absXreal < 1 && logshift < shiftedminLogVal) {
         cout << "Since abs|x| ~= 0 and log|x| << minimum logval, saturate and return\n";
         logshift = shiftedminLogVal;
-        cout << "Zero bound lognum: " << sint3bin(shiftedminLogVal) << " = " << minLogVal <<
+        lognum = sint3bin(shiftedminLogVal);
+        cout << "Zero bound lognum: " << lognum << " = " << minLogVal <<
              "\n\tIt's corresponding real is "<< nearZeroRealVal << "\n";
-
+        return lognum;
     }
 
     cout << "Given |x| = " << absXreal << " and logb|x| = " << logfloat << endl;
 
     if (x == 0) {
         cout << "Zero case. Plug min log in to make sure it works.\n";
-        string lognum = "1";
+        lognum = "1";
         for (int i = 0; i < (INTBITS + FRACBITS - 1); ++i) {
             lognum = lognum + "0";
         }
         cout << "Chose ZERO bound lognum: " << lognum << " = " << minLogVal << "\n\n";
-        return;
+        return lognum;
     }
 
     int upper = (int)ceil(logshift);
@@ -763,17 +798,22 @@ void experimentalLog(double x) {
 
     if (abs(upperboundreal-absXreal) < abs(lowerboundreal-absXreal)) {
         // upper bound better
+        lognum = upperlognum;
         cout << "Chose upper bound lognum: " << upperlognum << " = " << upperboundlog <<
                      "\n\tIt's corresponding real is "<< upperboundreal << "\n";
         cout << "other: lower bound lognum: " << lowerlognum << " = " << lowerboundlog <<
              "\n\tIt's corresponding real is "<< lowerboundreal << "\n\n";
-        return;
+        return lognum;
     }
+
+    lognum = lowerlognum;
 
     cout << "Chose lower bound lognum: " << lowerlognum << " = " << lowerboundlog <<
                 "\n\tIt's corresponding real is "<< lowerboundreal << "\n";
     cout << "other: upper bound lognum: " << upperlognum << " = " << upperboundlog <<
          "\n\tIt's corresponding real is "<< upperboundreal << "\n\n";
+
+    return lognum;
 }
 
 string sint3bin(int b) {
@@ -809,7 +849,8 @@ string sint3bin(int b) {
 }
 
 void verifyElog() {
-    experimentalLog(0);
+    experimentalLog(0); cout << "\n\n";
+    string s1,s2;
     for (int i = 0; i < SHORTTEST; ++i) {
         double j = double(rand())/RAND_MAX;
         if (i%2) {j*=-1;}
@@ -819,4 +860,32 @@ void verifyElog() {
         if (i%4) {j*=-1;}
         experimentalLog(j);
     }
+}
+
+void verifyQuant() {
+
+    for (int i = 0; i < SHORTTEST; ++i) {
+        double j = double(rand())/RAND_MAX;
+        if (i%2) {j*=-1;}
+        if (experimentalLog(j) != closestLog(j)) {
+            cout << "Error - closetLog produced: " << closestLog(j) << "\n\n";
+        }
+
+        j+=(rand() % (int)maxRealVal);
+        if (i%4) {j*=-1;}
+        if (experimentalLog(j) != closestLog(j)) {
+            cout << "Error - closetLog produced: " << closestLog(j) << "\n\n";
+        }
+    }
+}
+
+void InputFileWrite(ofstream &realInputs, ofstream &logInputs, double a, double b) {
+    realInputs << a << endl;
+    realInputs << b << endl;
+
+    string aLog = experimentalLog(a); string bLog = experimentalLog(b);
+    logInputs << aLog << endl;
+    logInputs << sgn(a) << endl;
+    logInputs << bLog << endl;
+    logInputs << sgn(b) << endl;
 }
