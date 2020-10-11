@@ -23,22 +23,22 @@
 using namespace std;
 static double logPrecision, minLogVal, maxLogVal, nearZeroRealVal, minRealVal, maxRealVal;
 
+// should be first function called in main
 void setup();
+
+// builds your test set
 void fullRangeTestSetAddition();
 void fullRangeTestSetMultiply();
 void smallTestSet();
 void deltaComparisonTestSet();
+
+// analyzes your results (need real NOT LOG results)
 void percentErrorAnalysis(string goldpath, string testpath);
 void MSE_Analysis(string goldpath, string testpath);
-void InputFileWrite(ofstream &RealInputs, ofstream &LogInputs, double x, double y);
 
 
-// Griffin will want closestLog, since he needs bit vectors for VHDL
-string closestLog(double);
-// Matt will want bestLog, since he needs numeric types for C++
-double bestLog(double);
-// better quantizing - in progress
-string experimentalLog(double);
+// better quantizing - good to go
+string logQuantize(double);
 // unsigned bitvector of length FRACBITS
 string int2bin(int a);
 // 2's c bitvector of length INTBITS
@@ -46,23 +46,32 @@ string sint2bin(int b);
 // 2's c bitvector of length W_BITS
 string sint3bin(int b);
 
+// Run us once each time you change the configuration
+// console output will let you know if any issues
 void verifyLogs();
 void verify2bins();
 void verifyElog();
 void verifyQuant();
 
+// convention, "1" for abs(x) > 0, "0" otherwise
 string sgn(double a) {
     string s = a > 0 ? "1" : "0";
     return s;
 }
 
+// Functional but deprecated
+string closestLog(double); // Griffin will want closestLog, since he needs bit vectors for VHDL
+double bestLog(double); // Matt will want bestLog, since he needs numeric types for C++
+
+// unused for now
+void InputFileWrite(ofstream &RealInputs, ofstream &LogInputs, double x, double y);
+
 int main() {
     setup();          // Always run setup first, this resets for any changes you made.
 
-//    verifyLogs();  // goes through best log, which is the "thinking" logic...
-//    verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
-
-//    verifyElog();
+    verifyLogs();  // goes through best log, which is the "thinking" logic...
+    verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
+    verifyElog();
     verifyQuant();
 
     return 0;
@@ -117,7 +126,7 @@ void fullRangeTestSetAddition(){
         realInputs << b << endl;
         goldOutputs << (a+b) << endl;
 
-        string aLog = experimentalLog(a); string bLog = experimentalLog(b);
+        string aLog = logQuantize(a); string bLog = logQuantize(b);
         logInputs << aLog << endl;
         logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
@@ -154,7 +163,7 @@ void fullRangeTestSetMultiply() {
         realInputs << b << endl;
         goldOutputs << (a*b) << endl;
 
-        string aLog = experimentalLog(a); string bLog = experimentalLog(b);
+        string aLog = logQuantize(a); string bLog = logQuantize(b);
         logInputs << aLog << endl;
         logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
@@ -193,7 +202,7 @@ void smallTestSet() {
         goldMultOutputs<< (a*b) << endl;
         goldAddOutputs << (a+b) << endl;
 
-        string aLog = experimentalLog(a); string bLog = experimentalLog(b);
+        string aLog = logQuantize(a); string bLog = logQuantize(b);
         logInputs << aLog << endl;
         logInputs << sgn(a) << endl;
         logInputs << bLog << endl;
@@ -254,9 +263,9 @@ void deltaComparisonTestSet() {
         goldPLUSOutputs << (a+bplus) << endl;
         goldMINUSOutputs << (a+bminus) << endl;
 
-        string aLog = experimentalLog(a);
-        string bPlusLog = experimentalLog(bplus);
-        string bMinusLog = experimentalLog(bminus);
+        string aLog = logQuantize(a);
+        string bPlusLog = logQuantize(bplus);
+        string bMinusLog = logQuantize(bminus);
 
         logPLUSInputs << aLog << endl; logPLUSInputs << sgn(a) << endl;
         logMINUSInputs << aLog << endl; logMINUSInputs << sgn(a) << endl;
@@ -756,7 +765,13 @@ double bestLog(double x) {
 
 }
 
-string experimentalLog(double x) {
+/*
+ * Cleaner quantization method, as suggested by Dr. Beerel 10/5
+ * Much easier than the others to understand...
+ *
+ *
+ * */
+string logQuantize(double x) {
     double absXreal = abs(x);
     double logfloat = log(absXreal)/log(BASE);
     double logshift = logfloat * pow(BASE,FRACBITS);
@@ -765,23 +780,18 @@ string experimentalLog(double x) {
 
     // saturation:
     if (absXreal < 1 && logshift < shiftedminLogVal) {
-        cout << "Since abs|x| ~= 0 and log|x| << minimum logval, saturate and return\n";
+       // Since abs|x| ~= 0 and log|x| << minimum logval, saturate and return
         logshift = shiftedminLogVal;
         lognum = sint3bin(shiftedminLogVal);
-        cout << "Zero bound lognum: " << lognum << " = " << minLogVal <<
-             "\n\tIt's corresponding real is "<< nearZeroRealVal << "\n";
         return lognum;
     }
 
-    cout << "Given |x| = " << absXreal << " and logb|x| = " << logfloat << endl;
-
     if (x == 0) {
-        cout << "Zero case. Plug min log in to make sure it works.\n";
+        // Chose ZERO bound lognum: = minLogVal
         lognum = "1";
         for (int i = 0; i < (INTBITS + FRACBITS - 1); ++i) {
             lognum = lognum + "0";
         }
-        cout << "Chose ZERO bound lognum: " << lognum << " = " << minLogVal << "\n\n";
         return lognum;
     }
 
@@ -799,20 +809,10 @@ string experimentalLog(double x) {
     if (abs(upperboundreal-absXreal) < abs(lowerboundreal-absXreal)) {
         // upper bound better
         lognum = upperlognum;
-        cout << "Chose upper bound lognum: " << upperlognum << " = " << upperboundlog <<
-                     "\n\tIt's corresponding real is "<< upperboundreal << "\n";
-        cout << "other: lower bound lognum: " << lowerlognum << " = " << lowerboundlog <<
-             "\n\tIt's corresponding real is "<< lowerboundreal << "\n\n";
         return lognum;
     }
 
     lognum = lowerlognum;
-
-    cout << "Chose lower bound lognum: " << lowerlognum << " = " << lowerboundlog <<
-                "\n\tIt's corresponding real is "<< lowerboundreal << "\n";
-    cout << "other: upper bound lognum: " << upperlognum << " = " << upperboundlog <<
-         "\n\tIt's corresponding real is "<< upperboundreal << "\n\n";
-
     return lognum;
 }
 
@@ -848,42 +848,44 @@ string sint3bin(int b) {
     return x.to_string();
 }
 
+// Run once with each config to test correctness
 void verifyElog() {
-    experimentalLog(0); cout << "\n\n";
+    logQuantize(0); cout << "\n\n";
     string s1,s2;
     for (int i = 0; i < SHORTTEST; ++i) {
         double j = double(rand())/RAND_MAX;
         if (i%2) {j*=-1;}
-        experimentalLog(j);
+        logQuantize(j);
 
         j+=(rand() % (int)maxRealVal);
         if (i%4) {j*=-1;}
-        experimentalLog(j);
+        logQuantize(j);
     }
 }
 
+// Run once with each config to test correctness
 void verifyQuant() {
-
-    for (int i = 0; i < SHORTTEST; ++i) {
+    for (int i = 0; i < TESTCASES; ++i) {
         double j = double(rand())/RAND_MAX;
         if (i%2) {j*=-1;}
-        if (experimentalLog(j) != closestLog(j)) {
+        if (logQuantize(j) != closestLog(j)) {
             cout << "Error - closetLog produced: " << closestLog(j) << "\n\n";
         }
 
         j+=(rand() % (int)maxRealVal);
         if (i%4) {j*=-1;}
-        if (experimentalLog(j) != closestLog(j)) {
+        if (logQuantize(j) != closestLog(j)) {
             cout << "Error - closetLog produced: " << closestLog(j) << "\n\n";
         }
     }
 }
 
+// This could be used, but isn't
 void InputFileWrite(ofstream &realInputs, ofstream &logInputs, double a, double b) {
     realInputs << a << endl;
     realInputs << b << endl;
 
-    string aLog = experimentalLog(a); string bLog = experimentalLog(b);
+    string aLog = logQuantize(a); string bLog = logQuantize(b);
     logInputs << aLog << endl;
     logInputs << sgn(a) << endl;
     logInputs << bLog << endl;
