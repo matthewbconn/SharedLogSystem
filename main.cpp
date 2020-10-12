@@ -69,10 +69,26 @@ void InputFileWrite(ofstream &RealInputs, ofstream &LogInputs, double x, double 
 int main() {
     setup();          // Always run setup first, this resets for any changes you made.
 
+/*  // Run us for each setup
     verifyLogs();  // goes through best log, which is the "thinking" logic...
     verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
     verifyElog();
     verifyQuant();
+
+*/
+
+//    fullRangeTestSetAddition();
+
+    int ourbase = 2;
+    cout << "Base " << ourbase << " results:\n";
+    string ending = "_BASE_" + to_string(ourbase) + "_Intb_" + to_string(INTBITS) + "_Fracb_" + to_string(FRACBITS) + ".txt";
+
+    string goldR("../golden_real_addition_results");
+    string testR("../real_addition_test_results");
+    string gold(goldR + ending), test(testR + ending);
+    percentErrorAnalysis(gold,test);
+    cout << endl;
+    MSE_Analysis(gold,test);
 
     return 0;
 }
@@ -87,7 +103,7 @@ void setup() {
 
     // corresponding real range
     maxRealVal = pow(BASE,maxLogVal);
-    minRealVal = -1.0*pow(BASE,abs(minLogVal));
+    minRealVal = -1.0*pow(BASE,maxLogVal);
     nearZeroRealVal = pow(BASE,minLogVal);
 
     // the printed values (and stored) are a function of printing precision
@@ -105,8 +121,10 @@ void fullRangeTestSetAddition(){
    srand(SEEDVAL); // Do not change this value. I set it to 545. Please leave that.
    cout << "Generating REAL and LOG inputs across (1/2) input range for addition" << endl;
    cout << "\tThis guarantees that no overflow will occur" << endl;
-   string file1name("../real_addition_inputs.txt"),file2name("../log_addition_inputs.txt"),
-                    file3name("../golden_real_addition_results.txt");
+   string file1name("../real_addition_inputs"),file2name("../log_addition_inputs"),
+                    file3name("../golden_real_addition_results");
+   string ending = "_BASE_" + to_string(BASE) + "_Intb_" + to_string(INTBITS) + "_Fracb_" + to_string(FRACBITS) + ".txt";
+   file1name += ending; file2name += ending; file3name += ending;
    ofstream realInputs(file1name);
    ofstream logInputs(file2name);
    ofstream goldOutputs(file3name);
@@ -142,8 +160,10 @@ void fullRangeTestSetMultiply() {
     srand(SEEDVAL); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across sqrt(input range) for multiplication" << endl;
     cout << "\tThis guarantees that no overflow will occur" << endl;
-    string file1name("../real_multiplication_inputs.txt"),file2name("../log_multiplication_inputs.txt"),
-            file3name("../golden_real_multiplication_results.txt");
+    string file1name("../real_multiplication_inputs"),file2name("../log_multiplication_inputs"),
+            file3name("../golden_real_multiplication_results");
+    string ending = "_BASE_" + to_string(BASE) + "_Intb_" + to_string(INTBITS) + "_Fracb_" + to_string(FRACBITS) + ".txt";
+    file1name += ending; file2name += ending; file3name += ending;
     ofstream realInputs(file1name);
     ofstream logInputs(file2name);
     ofstream goldOutputs(file3name);
@@ -181,8 +201,10 @@ void smallTestSet() {
     cout << "\tThese tests squeeze x into range -1 < x_real < +1" << endl;
     cout << "\tThis test set should be used to ensure sufficient precision with a small set of operands.\n";
     cout << "\tIf insufficient precision: add frac. bits OR decrease base." << endl;
-    string file1name("../real_small_inputs.txt"),file2name("../log_small_inputs.txt"),
-            file3name("../golden_real_multiplication_results.txt"),file4name("../golden_real_addition_results.txt");
+    string file1name("../real_small_inputs"),file2name("../log_small_inputs"),
+            file3name("../golden_real_multiplication_results"),file4name("../golden_real_addition_results");
+    string ending = "_BASE_" + to_string(BASE) + "_Intb_" + to_string(INTBITS) + "_Fracb_" + to_string(FRACBITS) + ".txt";
+    file1name += ending; file2name += ending; file3name += ending; file4name += ending;
     ofstream realInputs(file1name);
     ofstream logInputs(file2name);
     ofstream goldMultOutputs(file3name);
@@ -220,10 +242,14 @@ void deltaComparisonTestSet() {
     srand(SEEDVAL); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across (1/2) input range for DELTA testing" << endl;
     cout << "\tTesting done via log addition - guarantee that no overflow will occur" << endl;
-    string file1name("../real_delta_PLUS_inputs.txt"),file2name("../log_delta_PLUS_inputs.txt"),
-            file3name("../golden_real_delta_PLUS_results.txt");
-    string file4name("../real_delta_MINUS_inputs.txt"),file5name("../log_delta_MINUS_inputs.txt"),
-            file6name("../golden_real_delta_MINUS_results.txt");
+    string file1name("../real_delta_PLUS_inputs"),file2name("../log_delta_PLUS_inputs"),
+            file3name("../golden_real_delta_PLUS_results");
+    string file4name("../real_delta_MINUS_inputs"),file5name("../log_delta_MINUS_inputs"),
+            file6name("../golden_real_delta_MINUS_results");
+    string ending = "_BASE_" + to_string(BASE) + "_Intb_" + to_string(INTBITS) + "_Fracb_" + to_string(FRACBITS) + ".txt";
+    file1name += ending; file2name += ending; file3name += ending;
+    file4name += ending; file5name += ending; file6name += ending;
+
     ofstream realPLUSInputs(file1name); ofstream realMINUSInputs(file4name);
     ofstream logPLUSInputs(file2name);  ofstream logMINUSInputs(file5name);
     ofstream goldPLUSOutputs(file3name);ofstream goldMINUSOutputs(file6name);
@@ -291,13 +317,17 @@ void percentErrorAnalysis(string goldpath, string testpath) {
     ifstream gold(goldpath), test(testpath);
     int testCount(0); // by the end, this should = TESTCASES,or you changed something
     int largeErrorCt(0);
-    double numGold,numTest; // corresponding values
+    double numGold(0.0),numTest(0.0); // corresponding values
     double totalPercentError(0.0);
     while (!gold.eof() && !test.eof()) {
+        if (testCount > (TESTCASES - 5)){
+            // stop here
+            cout.flush();
+        }
         ++testCount;
         gold >> numGold;
         test >> numTest;
-        double samplePercentError = 100.0 * abs(numGold-numTest)/numGold;
+        double samplePercentError = 100.0 * abs((numGold-numTest)/numGold);
         if (samplePercentError > BIG_ERROR_PERCENT) {++largeErrorCt;}
         totalPercentError += samplePercentError;
     }
@@ -306,6 +336,7 @@ void percentErrorAnalysis(string goldpath, string testpath) {
     cout << "In " << testCount << " cases, saw " << largeErrorCt <<
             " cases with significant error ( >" << BIG_ERROR_PERCENT << "%)\n";
     printf("Average Percent Error: %2.6f",avgPercentError);
+    cout << "\n\n";
 
 }
 
@@ -320,7 +351,7 @@ void MSE_Analysis(string goldpath, string testpath) {
     ifstream gold(goldpath), test(testpath);
     int testCount(0); // by the end, this should = TESTCASES,or you changed something
     int largeErrorCt(0);
-    double numGold,numTest; // corresponding values
+    double numGold(0.0),numTest(0.0); // corresponding values
     double diff(0.0), totalPercentError(0.0);
     double MSE(0.0);
     while (!gold.eof() && !test.eof()) {
@@ -328,7 +359,7 @@ void MSE_Analysis(string goldpath, string testpath) {
         gold >> numGold;
         test >> numTest;
         diff = abs(numGold-numTest);
-        double samplePercentError = 100.0 * diff/numGold;
+        double samplePercentError = 100.0 * abs(diff/numGold);
         if (samplePercentError > BIG_ERROR_PERCENT) {++largeErrorCt;}
         MSE += diff*diff;
     }
@@ -337,10 +368,10 @@ void MSE_Analysis(string goldpath, string testpath) {
 
     cout << "In " << testCount << " cases, saw " << largeErrorCt <<
          " cases with significant error ( >" << BIG_ERROR_PERCENT << "%)\n";
-    printf("MSE of %d ops: %.7f", MSE);
-    printf("\nRMSD of %d ops: %.7f",RMSD);
-    printf("\n\tside note: if you got infinite % error that just "
-           "means a result =  0 test case came up. Run it again\n");
+    printf("MSE of %d ops: %.7f", testCount,MSE);
+    printf("\nRMSD of %d ops: %.7f",testCount,RMSD);
+    printf("\n\tside note: if you got infinite percent error that just "
+           "means a result =  0 test case came up. Generate new tests\n\n");
 }
 
 /*
