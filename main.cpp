@@ -6,7 +6,7 @@
 
 // on testing
 #define TESTCASES 100000
-#define BIG_ERROR_PERCENT 10
+#define BIG_ERROR_PERCENT 1000
 #define SHORTTEST 10
 #define EPSILON 0.0000000000000000001 //this one is kinda arbitrary
 #define SEEDVAL 545 // Do not change this. This val is 545. Do not change it
@@ -15,10 +15,7 @@
 #define BASE 2
 #define INTBITS 4
 #define FRACBITS 4
-#define W_BITS (INTBITS + FRACBITS)
-
-// for testing
-#define OUTPUT false
+#define WBITS (INTBITS + FRACBITS)
 
 using namespace std;
 static double logPrecision, minLogVal, maxLogVal, nearZeroRealVal, minRealVal, maxRealVal;
@@ -43,7 +40,7 @@ string logQuantize(double);
 string int2bin(int a);
 // 2's c bitvector of length INTBITS
 string sint2bin(int b);
-// 2's c bitvector of length W_BITS
+// 2's c bitvector of length WBITS
 string sint3bin(int b);
 
 // Run us once each time you change the configuration
@@ -69,7 +66,8 @@ void InputFileWrite(ofstream &RealInputs, ofstream &LogInputs, double x, double 
 int main() {
     setup();          // Always run setup first, this resets for any changes you made.
 
-/*  // Run us for each setup
+/*
+  // Run us for each setup
     verifyLogs();  // goes through best log, which is the "thinking" logic...
     verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
     verifyElog();
@@ -77,15 +75,44 @@ int main() {
 
 */
 
-//    fullRangeTestSetAddition();
+/*
+    double maxAddend = 1.0*maxRealVal/BASE;
+    for (int i = 0; i < 4; ++i) {
+        double x = rand() % (int) maxAddend; double y = rand() % (int)maxAddend;
+        x -= (double)rand()/RAND_MAX; y -= (double)rand()/RAND_MAX;
+        if (i % 2) {x *= -1.0;} if (i % 3) {y *= -1.0;}
+        cout << "x: " << x << "\t y: " << y << "\n";
+        cout << "Logs: " << logQuantize(x) << "\t" << logQuantize(y) << "\n\n";
+    }
+*/
 
-    int ourbase = 2;
+/*
+ *    // we need to pick a + b to add that will not cause overflow
+    double maxAddend = 1.0*maxRealVal/BASE;
+
+    for (int i = 0; i < TESTCASES; ++i) {
+        // get integer part
+        double a = rand() % (int)maxAddend; double b = rand() % (int)maxAddend;
+        // get fractional part
+        a -= (double)rand()/RAND_MAX; b -= (double)rand()/RAND_MAX;
+        // make sure we get some negatives in there
+        if (i%2) {a *= -1.0;} if (i%3) {b *= -1.0;}
+ */
+
+    //fullRangeTestSetAddition();
+
+    // This is an int, not a double, so that that the to_string gives us "BASE_2_" not "BASE_2.0000_"
+        // you can switch it to double if using a non integer base...
+    int ourbase = (2);
     cout << "Base " << ourbase << " results:\n";
     string ending = "_BASE_" + to_string(ourbase) + "_Intb_" + to_string(INTBITS) + "_Fracb_" + to_string(FRACBITS) + ".txt";
 
     string goldR("../golden_real_addition_results");
     string testR("../real_addition_test_results");
     string gold(goldR + ending), test(testR + ending);
+    cout << "File 1: " << gold << endl;
+    cout << "File 1: " << test << endl;
+
     percentErrorAnalysis(gold,test);
     cout << endl;
     MSE_Analysis(gold,test);
@@ -94,7 +121,7 @@ int main() {
 }
 
 void setup() {
-    cout << "\nGiven " << W_BITS << " bits total (" << INTBITS << " are int, "
+    cout << "\nGiven " << WBITS << " bits total (" << INTBITS << " are int, "
                 << FRACBITS << " are frac)" <<" for log_base = " << BASE << "\n\n";
     // calculate log ranges
     logPrecision = pow(BASE,-FRACBITS);
@@ -328,7 +355,9 @@ void percentErrorAnalysis(string goldpath, string testpath) {
         gold >> numGold;
         test >> numTest;
         double samplePercentError = 100.0 * abs((numGold-numTest)/numGold);
-        if (samplePercentError > BIG_ERROR_PERCENT) {++largeErrorCt;}
+        if (samplePercentError > BIG_ERROR_PERCENT) {
+            ++largeErrorCt;
+        }
         totalPercentError += samplePercentError;
     }
 
@@ -849,7 +878,7 @@ string logQuantize(double x) {
 
 string sint3bin(int b) {
     if (b >= 0) {
-        return bitset<W_BITS>(b).to_string();
+        return bitset<WBITS>(b).to_string();
     }
     // ahh, now the fun case
     // bitset takes in an UNSIGNED number as the ctor, so
@@ -861,7 +890,7 @@ string sint3bin(int b) {
     int bPos = -1*b;
 
     // 2. Get binary representation
-    auto x = bitset<W_BITS>(bPos);
+    auto x = bitset<WBITS>(bPos);
 
     // 3. Get 1's complement
     x.flip();
@@ -871,7 +900,7 @@ string sint3bin(int b) {
     x[0] = ~x[0];       // sum(1,x) = ~x
 
     // starting at LSB + 1, move through
-    for (int i = 1; i < W_BITS ; ++i) {
+    for (int i = 1; i < WBITS ; ++i) {
         bool sum = x[i] ^ carry; // sum(x,y) = x ^ y, carry(x,y) = x&y
         carry = x[i] & carry; // propogate the carry if this bit is a 1
         x[i] = sum;
