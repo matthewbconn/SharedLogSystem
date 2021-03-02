@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cmath>
 #include <bitset>
+#include "ConversionEngine.cpp"
 
 
 // on testing
@@ -33,6 +34,22 @@ void deltaComparisonTestSet();
 void percentErrorAnalysis(string goldpath, string testpath);
 void MSE_Analysis(string goldpath, string testpath);
 
+
+// conversion from log<-->real
+// required to construct input cases that have 0 conversion error
+double convertToDouble(lognum L) {
+    double d = pow(BASE,L.getLogval());
+    if(L.getSignBit()) {return d;}
+    return (-1.0 * d);
+}
+
+int convertToInt(lognum L) {
+    double d = pow(BASE,L.getLogval());
+    if (L.getSignBit()) {
+        return d;
+    }
+    return (int)(-1*d);
+}
 
 // better quantizing - good to go
 string logQuantize(double);
@@ -167,6 +184,13 @@ void fullRangeTestSetAddition(){
         // make sure we get some negatives in there
         if (i%2) {a *= -1.0;} if (i%3) {b *= -1.0;}
 
+        // this finds the closest representable value and replaces each input with that
+        // this way we only use inputs that have a perfect conversion to lognum format
+        lognum aL = toLogNum(a);
+        lognum bL = toLogNum(b);
+        a = convertToDouble(aL);
+        b = convertToDouble(bL);
+
         realInputs << a << endl;
         realInputs << b << endl;
         goldOutputs << (a+b) << endl;
@@ -205,6 +229,14 @@ void fullRangeTestSetMultiply() {
         a -= (double)rand()/RAND_MAX; b -= (double)rand()/RAND_MAX;
         // make sure we get some negatives in there
         if (i%2) {a *= -1.0;} if (i%3) {b *= -1.0;}
+
+
+        // this finds the closest representable value and replaces each input with that
+        // this way we only use inputs that have a perfect conversion to lognum format
+        lognum aL = toLogNum(a);
+        lognum bL = toLogNum(b);
+        a = convertToDouble(aL);
+        b = convertToDouble(bL);
 
         realInputs << a << endl;
         realInputs << b << endl;
@@ -246,6 +278,14 @@ void smallTestSet() {
         // make sure we get some negatives in there
         if (i%2) {a *= -1.0;} if (i%3) {b *= -1.0;}
 
+
+        // this finds the closest representable value and replaces each input with that
+        // this way we only use inputs that have a perfect conversion to lognum format
+        lognum aL = toLogNum(a);
+        lognum bL = toLogNum(b);
+        a = convertToDouble(aL);
+        b = convertToDouble(bL);
+
         realInputs << a << endl;
         realInputs << b << endl;
         goldMultOutputs<< (a*b) << endl;
@@ -265,6 +305,8 @@ void smallTestSet() {
     goldAddOutputs.close();
     goldMultOutputs.close();
 }
+
+// This function is not necessarily compatible with the 3/1/21 update
 void deltaComparisonTestSet() {
     srand(SEEDVAL); // Do not change this value. I set it to 545. Please leave that.
     cout << "Generating REAL and LOG inputs across (1/2) input range for DELTA testing" << endl;
