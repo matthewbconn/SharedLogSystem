@@ -83,14 +83,14 @@ void InputFileWrite(ofstream &RealInputs, ofstream &LogInputs, double x, double 
 int main() {
     setup();          // Always run setup first, this resets for any changes you made.
 
-/*
   // Run us for each setup
+/*
     verifyLogs();  // goes through best log, which is the "thinking" logic...
     verify2bins(); // you need this to get correct bit vector's (2's complement fixed point)
     verifyElog();
     verifyQuant();
-
 */
+
 
 /*
     double maxAddend = 1.0*maxRealVal/BASE;
@@ -116,7 +116,7 @@ int main() {
         if (i%2) {a *= -1.0;} if (i%3) {b *= -1.0;}
  */
 
-    //fullRangeTestSetAddition();
+//    fullRangeTestSetAddition();
 
     // This is an int, not a double, so that that the to_string gives us "BASE_2_" not "BASE_2.0000_"
         // you can switch it to double if using a non integer base...
